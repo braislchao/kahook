@@ -14,10 +14,10 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port         int    `mapstructure:"port"`
-	ReadTimeout  int    `mapstructure:"read_timeout"`
-	WriteTimeout int    `mapstructure:"write_timeout"`
-	IdleTimeout  int    `mapstructure:"idle_timeout"`
+	Port         int `mapstructure:"port"`
+	ReadTimeout  int `mapstructure:"read_timeout"`
+	WriteTimeout int `mapstructure:"write_timeout"`
+	IdleTimeout  int `mapstructure:"idle_timeout"`
 }
 
 type AuthConfig struct {

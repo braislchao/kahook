@@ -1,14 +1,21 @@
 package auth
 
 import (
+	"context"
 	"net/http"
 	"testing"
 )
 
+// newRequest is a test helper that creates an http.Request with context.
+func newRequest(method, url string) *http.Request {
+	req, _ := http.NewRequestWithContext(context.Background(), method, url, nil)
+	return req
+}
+
 func TestNoneAuth(t *testing.T) {
 	auth := NewNoneAuth()
 
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 	if !auth.Authenticate(req) {
 		t.Error("NoneAuth should always authenticate")
 	}
@@ -36,7 +43,7 @@ func TestBasicAuth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req, _ := http.NewRequest("POST", "/test", nil)
+			req := newRequest("POST", "/test")
 			req.SetBasicAuth(tt.username, tt.password)
 
 			if got := auth.Authenticate(req); got != tt.want {
@@ -48,7 +55,7 @@ func TestBasicAuth(t *testing.T) {
 
 func TestBasicAuth_MissingHeader(t *testing.T) {
 	auth := NewBasicAuth(map[string]string{"admin": "password"})
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 
 	if auth.Authenticate(req) {
 		t.Error("Should fail with missing Authorization header")
@@ -57,7 +64,7 @@ func TestBasicAuth_MissingHeader(t *testing.T) {
 
 func TestBasicAuth_WrongScheme(t *testing.T) {
 	auth := NewBasicAuth(map[string]string{"admin": "password"})
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 	req.Header.Set("Authorization", "Bearer token123")
 
 	if auth.Authenticate(req) {
@@ -83,7 +90,7 @@ func TestBearerAuth(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			req, _ := http.NewRequest("POST", "/test", nil)
+			req := newRequest("POST", "/test")
 			req.Header.Set("Authorization", "Bearer "+tt.token)
 
 			if got := auth.Authenticate(req); got != tt.want {
@@ -98,7 +105,7 @@ func TestBearerAuth_CaseInsensitive(t *testing.T) {
 
 	tests := []string{"Bearer token123", "bearer token123", "BEARER token123"}
 	for _, authHeader := range tests {
-		req, _ := http.NewRequest("POST", "/test", nil)
+		req := newRequest("POST", "/test")
 		req.Header.Set("Authorization", authHeader)
 
 		if !auth.Authenticate(req) {
@@ -109,7 +116,7 @@ func TestBearerAuth_CaseInsensitive(t *testing.T) {
 
 func TestBearerAuth_MissingHeader(t *testing.T) {
 	auth := NewBearerAuth([]string{"token"})
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 
 	if auth.Authenticate(req) {
 		t.Error("Should fail with missing Authorization header")
@@ -118,7 +125,7 @@ func TestBearerAuth_MissingHeader(t *testing.T) {
 
 func TestBearerAuth_WrongFormat(t *testing.T) {
 	auth := NewBearerAuth([]string{"token"})
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 	req.Header.Set("Authorization", "Basic credentials")
 
 	if auth.Authenticate(req) {
@@ -128,7 +135,7 @@ func TestBearerAuth_WrongFormat(t *testing.T) {
 
 func TestBearerAuth_NoSpaceAfterBearer(t *testing.T) {
 	auth := NewBearerAuth([]string{"token"})
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 	req.Header.Set("Authorization", "Bearertoken")
 
 	if auth.Authenticate(req) {
@@ -146,7 +153,7 @@ func TestMultiAuth_NoAuth(t *testing.T) {
 		t.Error("MultiAuth with no users/tokens should report HasAuth()=false")
 	}
 
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 	if !m.Authenticate(req) {
 		t.Error("MultiAuth with no auth should allow all requests")
 	}
@@ -159,28 +166,28 @@ func TestMultiAuth_BasicOnly(t *testing.T) {
 	}
 
 	// Valid basic creds.
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 	req.SetBasicAuth("admin", "password")
 	if !m.Authenticate(req) {
 		t.Error("Should accept valid basic credentials")
 	}
 
 	// Invalid basic creds.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	req.SetBasicAuth("admin", "wrong")
 	if m.Authenticate(req) {
 		t.Error("Should reject invalid basic credentials")
 	}
 
 	// Bearer token when only basic configured → reject.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	req.Header.Set("Authorization", "Bearer sometoken")
 	if m.Authenticate(req) {
 		t.Error("Should reject bearer token when only basic is configured")
 	}
 
 	// No header → reject.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	if m.Authenticate(req) {
 		t.Error("Should reject request with no Authorization header when auth is configured")
 	}
@@ -193,21 +200,21 @@ func TestMultiAuth_BearerOnly(t *testing.T) {
 	}
 
 	// Valid bearer token.
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 	req.Header.Set("Authorization", "Bearer token123")
 	if !m.Authenticate(req) {
 		t.Error("Should accept valid bearer token")
 	}
 
 	// Invalid bearer token.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	req.Header.Set("Authorization", "Bearer wrong")
 	if m.Authenticate(req) {
 		t.Error("Should reject invalid bearer token")
 	}
 
 	// Basic creds when only bearer configured → reject.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	req.SetBasicAuth("admin", "password")
 	if m.Authenticate(req) {
 		t.Error("Should reject basic credentials when only bearer is configured")
@@ -221,42 +228,42 @@ func TestMultiAuth_Both(t *testing.T) {
 	}
 
 	// Valid basic.
-	req, _ := http.NewRequest("POST", "/test", nil)
+	req := newRequest("POST", "/test")
 	req.SetBasicAuth("admin", "password")
 	if !m.Authenticate(req) {
 		t.Error("Should accept valid basic credentials when both configured")
 	}
 
 	// Valid bearer.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	req.Header.Set("Authorization", "Bearer token123")
 	if !m.Authenticate(req) {
 		t.Error("Should accept valid bearer token when both configured")
 	}
 
 	// Invalid basic.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	req.SetBasicAuth("admin", "wrong")
 	if m.Authenticate(req) {
 		t.Error("Should reject invalid basic credentials when both configured")
 	}
 
 	// Invalid bearer.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	req.Header.Set("Authorization", "Bearer wrong")
 	if m.Authenticate(req) {
 		t.Error("Should reject invalid bearer token when both configured")
 	}
 
 	// Unknown scheme.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	req.Header.Set("Authorization", "Digest abc123")
 	if m.Authenticate(req) {
 		t.Error("Should reject unknown auth scheme")
 	}
 
 	// No header.
-	req, _ = http.NewRequest("POST", "/test", nil)
+	req = newRequest("POST", "/test")
 	if m.Authenticate(req) {
 		t.Error("Should reject request with no Authorization header")
 	}

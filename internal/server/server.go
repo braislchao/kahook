@@ -10,8 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kahook/internal/auth"
 	"go.uber.org/zap"
+
+	"github.com/kahook/internal/auth"
 )
 
 // maxBodyBytes is the maximum request body size accepted by the webhook handler (1 MiB).
@@ -152,9 +153,7 @@ func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "only GET is allowed")
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "healthy"})
 }
 
 func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
@@ -168,9 +167,7 @@ func (s *Server) readyHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ready"})
+	s.writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 }
 
 // metricsHandler exposes internal runtime counters.
@@ -186,11 +183,8 @@ func (s *Server) metricsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
 	response := newMetricsSnapshot(s.metrics)
-	json.NewEncoder(w).Encode(response)
+	s.writeJSON(w, http.StatusOK, response)
 }
 
 func (s *Server) webhookHandler(w http.ResponseWriter, r *http.Request) {
@@ -273,9 +267,7 @@ func (s *Server) webhookHandler(w http.ResponseWriter, r *http.Request) {
 		zap.String("request_id", requestID),
 	)
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]string{
+	s.writeJSON(w, http.StatusAccepted, map[string]string{
 		"status":     "accepted",
 		"topic":      topic,
 		"request_id": requestID,
@@ -306,10 +298,16 @@ func (s *Server) writeUnauthorized(w http.ResponseWriter, r *http.Request) {
 func (s *Server) writeError(w http.ResponseWriter, code int, errorType, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(ErrorResponse{
+	_ = json.NewEncoder(w).Encode(ErrorResponse{
 		Error:   errorType,
 		Message: message,
 	})
+}
+
+func (s *Server) writeJSON(w http.ResponseWriter, code int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
+	_ = json.NewEncoder(w).Encode(v)
 }
 
 func isInternalHeader(key string) bool {

@@ -9,12 +9,13 @@ import (
 	"syscall"
 	"time"
 
+	"go.uber.org/zap"
+
 	"github.com/kahook/internal/auth"
 	"github.com/kahook/internal/config"
 	"github.com/kahook/internal/kafka"
 	"github.com/kahook/internal/server"
 	"github.com/kahook/internal/version"
-	"go.uber.org/zap"
 )
 
 func main() {
@@ -28,7 +29,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "failed to create logger: %v\n", err)
 		os.Exit(1)
 	}
-	defer logger.Sync()
+	defer logger.Sync() //nolint:errcheck // best-effort flush on exit
 
 	logger.Info("starting kahook",
 		zap.String("version", version.Version),

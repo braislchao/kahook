@@ -141,5 +141,3 @@ func (m *MultiAuth) Authenticate(r *http.Request) bool {
 		return false
 	}
 }
-
-

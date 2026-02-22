@@ -1,8 +1,9 @@
 package server
 
 import (
-	"github.com/google/uuid"
 	"net/http"
+
+	"github.com/google/uuid"
 )
 
 const RequestIDHeader = "X-Request-ID"

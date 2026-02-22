@@ -9,8 +9,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kahook/internal/auth"
 	"go.uber.org/zap"
+
+	"github.com/kahook/internal/auth"
 )
 
 // mockProducer satisfies the KafkaProducer interface for testing.
