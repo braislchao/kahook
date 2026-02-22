@@ -1,0 +1,36 @@
+# Confluent Cloud configuration template
+#
+# Viper does NOT interpolate shell-style ${VAR} syntax in YAML values.
+# All sensitive credentials MUST be supplied via environment variables at
+# runtime. This file provides the structural/static settings only.
+#
+# Required environment variables:
+#   KAFKA_BROKERS          - e.g. pkc-xxxxx.us-east-1.aws.confluent.cloud:9092
+#   KAFKA_SASL_USERNAME    - Confluent Cloud API key
+#   KAFKA_SASL_PASSWORD    - Confluent Cloud API secret
+#
+# Optional (override defaults below):
+#   AUTH_TYPE              - "basic" or "bearer"
+#   SERVER_PORT            - default 8080
+
+server:
+  port: 8080
+  read_timeout: 10
+  write_timeout: 10
+  idle_timeout: 60
+
+# Set auth.type to "none" here; enable and configure auth via env vars or a
+# separate mounted secret so credentials never live in this file.
+auth:
+  type: none
+
+kafka:
+  # brokers MUST be supplied via the KAFKA_BROKERS env var at runtime.
+  # Do not put placeholder values here — the app validates that broker
+  # addresses look real and will reject obvious placeholders.
+  brokers: []
+  sasl_mechanism: PLAIN
+  security_protocol: SASL_SSL
+  acks: all
+  retries: 5
+  compression_type: snappy

@@ -1,0 +1,27 @@
+# Build output
+bin/
+dist/
+tmp/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+coverage.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment / local config
+.env
+.env.local
+config.local.yaml
+*.log
+
+# Dependencies
+vendor/

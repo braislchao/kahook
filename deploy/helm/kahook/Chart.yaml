@@ -1,0 +1,17 @@
+apiVersion: v2
+name: kahook
+description: A lightweight webhook-to-Kafka bridge
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - kafka
+  - webhook
+  - events
+  - streaming
+home: https://github.com/kahook/kahook
+sources:
+  - https://github.com/kahook/kahook
+maintainers:
+  - name: kahook
+    url: https://github.com/kahook

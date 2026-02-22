@@ -1,0 +1,26 @@
+server:
+  port: 8080
+  read_timeout: 10
+  write_timeout: 10
+  idle_timeout: 60
+
+# Authentication is disabled by default so no credentials are baked into the
+# image. Set auth.type to "basic" or "bearer" and supply credentials via
+# environment variables or a mounted secret at runtime:
+#
+#   Basic auth:
+#     AUTH_TYPE=basic
+#     (Users must be configured via a mounted config file or custom image layer)
+#
+#   Bearer auth:
+#     AUTH_TYPE=bearer
+#     (Tokens must be configured via a mounted config file or custom image layer)
+auth:
+  type: none
+
+kafka:
+  brokers:
+    - localhost:9092
+  acks: all
+  retries: 3
+  compression_type: snappy

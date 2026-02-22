@@ -1,0 +1,126 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kahook
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kahook-config
+  namespace: kahook
+data:
+  config.yaml: |
+    server:
+      port: 8080
+      read_timeout: 10
+      write_timeout: 10
+      idle_timeout: 60
+    auth:
+      type: basic
+    kafka:
+      acks: all
+      retries: 5
+      compression_type: snappy
+---
+# Credentials MUST be supplied at runtime — never commit real values here.
+# Basic/Bearer auth users and tokens are configured inside config.yaml
+# (mount via the ConfigMap or a separate Secret volume).
+apiVersion: v1
+kind: Secret
+metadata:
+  name: kahook-secrets
+  namespace: kahook
+type: Opaque
+stringData:
+  KAFKA_BROKERS: "kafka:9092"
+  KAFKA_SASL_USERNAME: ""
+  KAFKA_SASL_PASSWORD: ""
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kahook
+  namespace: kahook
+  labels:
+    app: kahook
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: kahook
+  template:
+    metadata:
+      labels:
+        app: kahook
+    spec:
+      containers:
+        - name: kahook
+          image: kahook:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8080
+              name: http
+          envFrom:
+            - secretRef:
+                name: kahook-secrets
+          volumeMounts:
+            - name: config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+      volumes:
+        - name: config
+          configMap:
+            name: kahook-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kahook
+  namespace: kahook
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: kahook
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kahook
+  namespace: kahook
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: kahook.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kahook
+                port:
+                  number: 8080

@@ -1,0 +1,119 @@
+replicaCount: 2
+
+image:
+  repository: kahook
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+service:
+  type: ClusterIP
+  port: 8080
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: kahook.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: kahook-tls
+  #    hosts:
+  #      - kahook.example.com
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 512Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+config:
+  server:
+    port: 8080
+    readTimeout: 10
+    writeTimeout: 10
+    idleTimeout: 60
+  kafka:
+    acks: all
+    retries: 5
+    compressionType: snappy
+
+# Authentication.
+# Defaults to "none". For production, set type to "basic" or "bearer" and
+# supply credentials via a Kubernetes Secret mounted as a config file — do NOT
+# hard-code passwords here.
+#
+# Example (basic):
+#   auth:
+#     type: basic
+#     users:
+#       - username: admin
+#         password: ""  # set via Secret / external values
+#
+# Example (bearer):
+#   auth:
+#     type: bearer
+#     tokens: []        # set via Secret / external values
+auth:
+  type: none
+  users: []
+  tokens: []
+
+kafka:
+  brokers:
+    - kafka:9092
+  sasl:
+    enabled: false
+    username: ""
+    password: ""
+    mechanism: PLAIN
+  securityProtocol: PLAINTEXT
+
+healthCheck:
+  enabled: true
+  liveness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readiness:
+    initialDelaySeconds: 5
+    periodSeconds: 10
