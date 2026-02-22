@@ -2,11 +2,20 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestLoad_Defaults(t *testing.T) {
+	// Run from a temp dir so no config.yaml is found.
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+
 	cfg, err := Load("")
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
@@ -26,10 +35,15 @@ func TestLoad_Defaults(t *testing.T) {
 }
 
 func TestLoad_EnvOverride(t *testing.T) {
-	os.Setenv("SERVER_PORT", "9999")
-	os.Setenv("KAFKA_RETRIES", "10")
-	defer os.Unsetenv("SERVER_PORT")
-	defer os.Unsetenv("KAFKA_RETRIES")
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+
+	t.Setenv("SERVER_PORT", "9999")
+	t.Setenv("KAFKA_RETRIES", "10")
 
 	cfg, err := Load("")
 	if err != nil {
@@ -42,6 +56,78 @@ func TestLoad_EnvOverride(t *testing.T) {
 
 	if cfg.Kafka.Retries != 10 {
 		t.Errorf("Retries should be 10 from env, got %d", cfg.Kafka.Retries)
+	}
+}
+
+func TestLoad_FromFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	data := []byte(`
+server:
+  port: 3000
+kafka:
+  brokers:
+    - broker1:9092
+    - broker2:9092
+  acks: "1"
+`)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.Server.Port != 3000 {
+		t.Errorf("Port should be 3000 from file, got %d", cfg.Server.Port)
+	}
+
+	if len(cfg.Kafka.Brokers) != 2 {
+		t.Errorf("Should have 2 brokers, got %d", len(cfg.Kafka.Brokers))
+	}
+
+	if cfg.Kafka.Acks != "1" {
+		t.Errorf("Acks should be '1' from file, got %s", cfg.Kafka.Acks)
+	}
+
+	// Defaults still apply for fields not in the file.
+	if cfg.Kafka.CompressionType != "snappy" {
+		t.Errorf("Default compression_type should be 'snappy', got %s", cfg.Kafka.CompressionType)
+	}
+}
+
+func TestLoad_EnvOverridesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	data := []byte(`
+server:
+  port: 3000
+kafka:
+  brokers:
+    - file-broker:9092
+`)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("SERVER_PORT", "5555")
+	t.Setenv("KAFKA_BROKERS", "env-broker:9092")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if cfg.Server.Port != 5555 {
+		t.Errorf("Env should override file port, got %d", cfg.Server.Port)
+	}
+
+	if len(cfg.Kafka.Brokers) != 1 || cfg.Kafka.Brokers[0] != "env-broker:9092" {
+		t.Errorf("Env should override file brokers, got %v", cfg.Kafka.Brokers)
 	}
 }
 
@@ -91,8 +177,6 @@ func TestValidate_PlaceholderBroker(t *testing.T) {
 }
 
 func TestValidate_AnyAuthTypeAccepted(t *testing.T) {
-	// auth.type is no longer strictly enforced — any value is accepted
-	// as long as it doesn't contradict the configured users/tokens.
 	cfg := &Config{
 		Server: ServerConfig{Port: 8080},
 		Kafka:  KafkaConfig{Brokers: []string{"localhost:9092"}},

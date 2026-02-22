@@ -2,100 +2,167 @@ package config
 
 import (
 	"fmt"
+	"os"
+	"strconv"
 	"strings"
 
-	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
-	Server ServerConfig `mapstructure:"server"`
-	Auth   AuthConfig   `mapstructure:"auth"`
-	Kafka  KafkaConfig  `mapstructure:"kafka"`
+	Server ServerConfig `yaml:"server"`
+	Auth   AuthConfig   `yaml:"auth"`
+	Kafka  KafkaConfig  `yaml:"kafka"`
 }
 
 type ServerConfig struct {
-	Port         int `mapstructure:"port"`
-	ReadTimeout  int `mapstructure:"read_timeout"`
-	WriteTimeout int `mapstructure:"write_timeout"`
-	IdleTimeout  int `mapstructure:"idle_timeout"`
+	Port         int `yaml:"port"`
+	ReadTimeout  int `yaml:"read_timeout"`
+	WriteTimeout int `yaml:"write_timeout"`
+	IdleTimeout  int `yaml:"idle_timeout"`
 }
 
 type AuthConfig struct {
-	Type   string       `mapstructure:"type"`
-	Users  []UserConfig `mapstructure:"users"`
-	Tokens []string     `mapstructure:"tokens"`
+	Type   string       `yaml:"type"`
+	Users  []UserConfig `yaml:"users"`
+	Tokens []string     `yaml:"tokens"`
 }
 
 type UserConfig struct {
-	Username string `mapstructure:"username"`
-	Password string `mapstructure:"password"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
 }
 
 type KafkaConfig struct {
-	Brokers          []string `mapstructure:"brokers"`
-	SASLUsername     string   `mapstructure:"sasl_username"`
-	SASLPassword     string   `mapstructure:"sasl_password"`
-	SASLMechanism    string   `mapstructure:"sasl_mechanism"`
-	SecurityProtocol string   `mapstructure:"security_protocol"`
-	Acks             string   `mapstructure:"acks"`
-	Retries          int      `mapstructure:"retries"`
-	CompressionType  string   `mapstructure:"compression_type"`
+	Brokers          []string `yaml:"brokers"`
+	SASLUsername     string   `yaml:"sasl_username"`
+	SASLPassword     string   `yaml:"sasl_password"`
+	SASLMechanism    string   `yaml:"sasl_mechanism"`
+	SecurityProtocol string   `yaml:"security_protocol"`
+	Acks             string   `yaml:"acks"`
+	Retries          int      `yaml:"retries"`
+	CompressionType  string   `yaml:"compression_type"`
 }
 
 func Load(configPath string) (*Config, error) {
-	v := viper.New()
+	cfg := defaults()
 
-	v.SetConfigName("config")
-	v.SetConfigType("yaml")
-
-	if configPath != "" {
-		v.SetConfigFile(configPath)
-	} else {
-		v.AddConfigPath(".")
-		v.AddConfigPath("./config")
-		v.AddConfigPath("/etc/kahook")
+	if err := loadFile(cfg, configPath); err != nil {
+		return nil, err
 	}
 
-	setDefaults(v)
-	setEnvBindings(v)
+	applyEnv(cfg)
 
-	if err := v.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			return nil, fmt.Errorf("error reading config file: %w", err)
-		}
-	}
-
-	var cfg Config
-	if err := v.Unmarshal(&cfg); err != nil {
-		return nil, fmt.Errorf("error unmarshaling config: %w", err)
-	}
-
-	if err := validate(&cfg); err != nil {
+	if err := validate(cfg); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
 
-	return &cfg, nil
+	return cfg, nil
 }
 
-func setDefaults(v *viper.Viper) {
-	v.SetDefault("server.port", 8080)
-	v.SetDefault("server.read_timeout", 10)
-	v.SetDefault("server.write_timeout", 10)
-	v.SetDefault("server.idle_timeout", 60)
-
-	v.SetDefault("kafka.brokers", []string{"localhost:9092"})
-	v.SetDefault("kafka.acks", "all")
-	v.SetDefault("kafka.retries", 3)
-	v.SetDefault("kafka.compression_type", "snappy")
-	v.SetDefault("kafka.sasl_mechanism", "PLAIN")
-	v.SetDefault("kafka.security_protocol", "PLAINTEXT")
-
-	v.SetDefault("auth.type", "none")
+func defaults() *Config {
+	return &Config{
+		Server: ServerConfig{
+			Port:         8080,
+			ReadTimeout:  10,
+			WriteTimeout: 10,
+			IdleTimeout:  60,
+		},
+		Auth: AuthConfig{
+			Type: "none",
+		},
+		Kafka: KafkaConfig{
+			Brokers:          []string{"localhost:9092"},
+			Acks:             "all",
+			Retries:          3,
+			CompressionType:  "snappy",
+			SASLMechanism:    "PLAIN",
+			SecurityProtocol: "PLAINTEXT",
+		},
+	}
 }
 
-func setEnvBindings(v *viper.Viper) {
-	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
-	v.AutomaticEnv()
+func loadFile(cfg *Config, path string) error {
+	if path == "" {
+		// Search default locations.
+		for _, p := range []string{"config.yaml", "config/config.yaml", "/etc/kahook/config.yaml"} {
+			if _, err := os.Stat(p); err == nil {
+				path = p
+				break
+			}
+		}
+	}
+
+	if path == "" {
+		return nil // No config file found — use defaults + env.
+	}
+
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("error reading config file: %w", err)
+	}
+
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return fmt.Errorf("error parsing config file: %w", err)
+	}
+
+	return nil
+}
+
+// applyEnv overrides config fields from environment variables.
+// Only non-empty env vars override the current value.
+func applyEnv(cfg *Config) {
+	if v := os.Getenv("SERVER_PORT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Server.Port = n
+		}
+	}
+	if v := os.Getenv("SERVER_READ_TIMEOUT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Server.ReadTimeout = n
+		}
+	}
+	if v := os.Getenv("SERVER_WRITE_TIMEOUT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Server.WriteTimeout = n
+		}
+	}
+	if v := os.Getenv("SERVER_IDLE_TIMEOUT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Server.IdleTimeout = n
+		}
+	}
+
+	if v := os.Getenv("AUTH_TYPE"); v != "" {
+		cfg.Auth.Type = v
+	}
+
+	if v := os.Getenv("KAFKA_BROKERS"); v != "" {
+		cfg.Kafka.Brokers = strings.Split(v, ",")
+	}
+	if v := os.Getenv("KAFKA_SASL_USERNAME"); v != "" {
+		cfg.Kafka.SASLUsername = v
+	}
+	if v := os.Getenv("KAFKA_SASL_PASSWORD"); v != "" {
+		cfg.Kafka.SASLPassword = v
+	}
+	if v := os.Getenv("KAFKA_SASL_MECHANISM"); v != "" {
+		cfg.Kafka.SASLMechanism = v
+	}
+	if v := os.Getenv("KAFKA_SECURITY_PROTOCOL"); v != "" {
+		cfg.Kafka.SecurityProtocol = v
+	}
+	if v := os.Getenv("KAFKA_ACKS"); v != "" {
+		cfg.Kafka.Acks = v
+	}
+	if v := os.Getenv("KAFKA_RETRIES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			cfg.Kafka.Retries = n
+		}
+	}
+	if v := os.Getenv("KAFKA_COMPRESSION_TYPE"); v != "" {
+		cfg.Kafka.CompressionType = v
+	}
 }
 
 func validate(cfg *Config) error {
@@ -113,9 +180,6 @@ func validate(cfg *Config) error {
 		}
 	}
 
-	// auth.type is accepted for backward compatibility but is no longer
-	// enforced — authentication is auto-detected based on whether users
-	// and/or tokens are configured. We still warn about obvious misconfigs.
 	authType := strings.ToLower(cfg.Auth.Type)
 	if authType == "basic" && len(cfg.Auth.Users) == 0 {
 		return fmt.Errorf("auth.type is 'basic' but no users are configured")
@@ -129,20 +193,20 @@ func validate(cfg *Config) error {
 }
 
 func (c *Config) KafkaConfigMap() map[string]any {
-	config := make(map[string]any)
+	m := make(map[string]any)
 
-	config["bootstrap.servers"] = strings.Join(c.Kafka.Brokers, ",")
+	m["bootstrap.servers"] = strings.Join(c.Kafka.Brokers, ",")
 
 	if c.Kafka.SASLUsername != "" && c.Kafka.SASLPassword != "" {
-		config["sasl.username"] = c.Kafka.SASLUsername
-		config["sasl.password"] = c.Kafka.SASLPassword
-		config["sasl.mechanism"] = c.Kafka.SASLMechanism
-		config["security.protocol"] = c.Kafka.SecurityProtocol
+		m["sasl.username"] = c.Kafka.SASLUsername
+		m["sasl.password"] = c.Kafka.SASLPassword
+		m["sasl.mechanism"] = c.Kafka.SASLMechanism
+		m["security.protocol"] = c.Kafka.SecurityProtocol
 	}
 
-	config["acks"] = c.Kafka.Acks
-	config["retries"] = c.Kafka.Retries
-	config["compression.type"] = c.Kafka.CompressionType
+	m["acks"] = c.Kafka.Acks
+	m["retries"] = c.Kafka.Retries
+	m["compression.type"] = c.Kafka.CompressionType
 
-	return config
+	return m
 }

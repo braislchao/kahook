@@ -1,7 +1,6 @@
 # Confluent Cloud configuration template
 #
-# Viper does NOT interpolate shell-style ${VAR} syntax in YAML values.
-# All sensitive credentials MUST be supplied via environment variables at
+# Sensitive credentials MUST be supplied via environment variables at
 # runtime. This file provides the structural/static settings only.
 #
 # Required environment variables:

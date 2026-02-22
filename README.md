@@ -109,7 +109,3 @@ make test     # Run tests
 make lint     # Run linters
 make build    # Build binary
 ```
-
-## License
-
-MIT
