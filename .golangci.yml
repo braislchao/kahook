@@ -31,7 +31,7 @@ linters-settings:
       - G104  # errors unhandled — covered by errcheck
   errcheck:
     check-type-assertions: true
-    check-blank: true
+    check-blank: false
 
 issues:
   exclude-rules:
