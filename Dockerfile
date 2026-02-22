@@ -1,8 +1,8 @@
 ARG GO_VERSION=1.22
 
-FROM golang:${GO_VERSION}-alpine AS builder
+FROM golang:${GO_VERSION}-bookworm AS builder
 
-RUN apk add --no-cache git gcc musl-dev pkgconf
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
@@ -11,13 +11,14 @@ RUN go mod download
 
 COPY . .
 
-RUN CGO_ENABLED=1 GOOS=linux go build -ldflags="-w -s -linkmode external -extldflags '-static'" -o /kahook ./cmd/server
+RUN CGO_ENABLED=1 go build -ldflags="-w -s" -o /kahook ./cmd/server
 
-FROM alpine:3.19
+FROM debian:bookworm-slim
 
-RUN apk add --no-cache ca-certificates tzdata && \
-    addgroup -g 1000 kahook && \
-    adduser -u 1000 -G kahook -s /bin/sh -D kahook
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates wget && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd -g 1000 kahook && \
+    useradd -u 1000 -g kahook -s /bin/sh -M kahook
 
 WORKDIR /app
 

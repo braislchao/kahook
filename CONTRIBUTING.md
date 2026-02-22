@@ -34,7 +34,3 @@ internal/kafka/      Kafka producer
 internal/server/     HTTP server and handlers
 deploy/              Kubernetes and Helm
 ```
-
-## License
-
-Contributions are licensed under MIT.

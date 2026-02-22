@@ -63,6 +63,19 @@ func TestHealthHandler(t *testing.T) {
 	}
 }
 
+func TestHealthHandler_HEAD(t *testing.T) {
+	srv := setupTestServer(auth.NewMultiAuth(nil, nil), &mockProducer{isHealthy: true})
+
+	req := httptest.NewRequest(http.MethodHead, "/health", nil)
+	w := httptest.NewRecorder()
+
+	srv.healthHandler(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("healthHandler HEAD status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
 func TestHealthHandler_MethodNotAllowed(t *testing.T) {
 	srv := setupTestServer(auth.NewMultiAuth(nil, nil), &mockProducer{isHealthy: true})
 

@@ -6,7 +6,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - KAFKA_BROKERS=kafka:9092
+      - KAFKA_BROKERS=kafka:29092
       # Override auth at runtime — do not hardcode credentials here for production.
       # Example: enable basic auth via env (requires users configured in mounted config):
       # - AUTH_TYPE=basic

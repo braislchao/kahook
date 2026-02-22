@@ -149,7 +149,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 func (s *Server) healthHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "only GET is allowed")
 		return
 	}
