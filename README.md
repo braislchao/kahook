@@ -25,7 +25,7 @@ curl -X POST http://localhost:8080/my-topic \
 
 ## Authentication
 
-Kahook auto-detects the scheme from the `Authorization` header. Configure users and/or tokens in `config.yaml`:
+Kahook auto-detects the scheme from the `Authorization` header. Configure users and/or tokens via `config.yaml` or environment variables:
 
 ```yaml
 auth:
@@ -34,6 +34,13 @@ auth:
       password: secret
   tokens:
     - my-bearer-token
+```
+
+Or via environment variables (useful for Kubernetes Secrets):
+
+```bash
+AUTH_TOKENS=my-bearer-token
+AUTH_BASIC_USERS=admin:secret,reader:pass123
 ```
 
 If both are configured, clients can use either. If neither is configured, all requests are allowed.
@@ -59,6 +66,8 @@ kafka:
 
 ### Confluent Cloud
 
+Via `config.yaml`:
+
 ```yaml
 kafka:
   brokers:
@@ -67,6 +76,16 @@ kafka:
   sasl_password: your-api-secret
   sasl_mechanism: PLAIN
   security_protocol: SASL_SSL
+```
+
+Or via environment variables:
+
+```bash
+KAFKA_BROKERS=pkc-xxxxx.us-east-1.aws.confluent.cloud:9092
+KAFKA_SASL_USERNAME=your-api-key
+KAFKA_SASL_PASSWORD=your-api-secret
+KAFKA_SASL_MECHANISM=PLAIN
+KAFKA_SECURITY_PROTOCOL=SASL_SSL
 ```
 
 ### Environment Variables
