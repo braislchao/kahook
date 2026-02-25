@@ -136,6 +136,21 @@ func applyEnv(cfg *Config) {
 	if v := os.Getenv("AUTH_TYPE"); v != "" {
 		cfg.Auth.Type = v
 	}
+	if v := os.Getenv("AUTH_TOKENS"); v != "" {
+		cfg.Auth.Tokens = strings.Split(v, ",")
+	}
+	if v := os.Getenv("AUTH_BASIC_USERS"); v != "" {
+		var users []UserConfig
+		for _, pair := range strings.Split(v, ",") {
+			parts := strings.SplitN(pair, ":", 2)
+			if len(parts) == 2 {
+				users = append(users, UserConfig{Username: parts[0], Password: parts[1]})
+			}
+		}
+		if len(users) > 0 {
+			cfg.Auth.Users = users
+		}
+	}
 
 	if v := os.Getenv("KAFKA_BROKERS"); v != "" {
 		cfg.Kafka.Brokers = strings.Split(v, ",")

@@ -242,6 +242,131 @@ func TestValidate_ValidBearerAuth(t *testing.T) {
 	}
 }
 
+func TestLoad_AuthTokensFromEnv(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+
+	t.Setenv("AUTH_TYPE", "bearer")
+	t.Setenv("AUTH_TOKENS", "tok1,tok2,tok3")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if len(cfg.Auth.Tokens) != 3 {
+		t.Fatalf("Expected 3 tokens, got %d", len(cfg.Auth.Tokens))
+	}
+	if cfg.Auth.Tokens[0] != "tok1" || cfg.Auth.Tokens[1] != "tok2" || cfg.Auth.Tokens[2] != "tok3" {
+		t.Errorf("Unexpected tokens: %v", cfg.Auth.Tokens)
+	}
+}
+
+func TestLoad_AuthBasicUsersFromEnv(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+
+	t.Setenv("AUTH_TYPE", "basic")
+	t.Setenv("AUTH_BASIC_USERS", "admin:secret,reader:pass123")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if len(cfg.Auth.Users) != 2 {
+		t.Fatalf("Expected 2 users, got %d", len(cfg.Auth.Users))
+	}
+	if cfg.Auth.Users[0].Username != "admin" || cfg.Auth.Users[0].Password != "secret" {
+		t.Errorf("Unexpected first user: %+v", cfg.Auth.Users[0])
+	}
+	if cfg.Auth.Users[1].Username != "reader" || cfg.Auth.Users[1].Password != "pass123" {
+		t.Errorf("Unexpected second user: %+v", cfg.Auth.Users[1])
+	}
+}
+
+func TestLoad_AuthBasicUsersFromEnv_MalformedSkipped(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+
+	t.Setenv("AUTH_TYPE", "basic")
+	t.Setenv("AUTH_BASIC_USERS", "admin:secret,badentry,reader:pass")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if len(cfg.Auth.Users) != 2 {
+		t.Fatalf("Expected 2 valid users (malformed skipped), got %d", len(cfg.Auth.Users))
+	}
+	if cfg.Auth.Users[0].Username != "admin" || cfg.Auth.Users[1].Username != "reader" {
+		t.Errorf("Unexpected users: %+v", cfg.Auth.Users)
+	}
+}
+
+func TestLoad_AuthEnvOverridesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+
+	data := []byte(`
+auth:
+  type: bearer
+  tokens:
+    - file-token
+`)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("AUTH_TOKENS", "env-token1,env-token2")
+
+	cfg, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if len(cfg.Auth.Tokens) != 2 || cfg.Auth.Tokens[0] != "env-token1" {
+		t.Errorf("Env should override file tokens, got %v", cfg.Auth.Tokens)
+	}
+}
+
+func TestLoad_AuthBasicUsersPasswordWithColon(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+
+	t.Setenv("AUTH_TYPE", "basic")
+	t.Setenv("AUTH_BASIC_USERS", "admin:pass:with:colons")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if len(cfg.Auth.Users) != 1 {
+		t.Fatalf("Expected 1 user, got %d", len(cfg.Auth.Users))
+	}
+	if cfg.Auth.Users[0].Password != "pass:with:colons" {
+		t.Errorf("Password should preserve colons, got %q", cfg.Auth.Users[0].Password)
+	}
+}
+
 func TestKafkaConfigMap(t *testing.T) {
 	tests := []struct {
 		name   string
