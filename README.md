@@ -74,6 +74,9 @@ kafka:
 | Variable | Description |
 |----------|-------------|
 | `SERVER_PORT` | HTTP port |
+| `AUTH_TYPE` | Auth method: `none`, `basic`, or `bearer` |
+| `AUTH_TOKENS` | Comma-separated bearer tokens |
+| `AUTH_BASIC_USERS` | Comma-separated `user:pass` pairs (e.g. `admin:secret,reader:pass`) |
 | `KAFKA_BROKERS` | Comma-separated brokers |
 | `KAFKA_SASL_USERNAME` | SASL username |
 | `KAFKA_SASL_PASSWORD` | SASL password |
