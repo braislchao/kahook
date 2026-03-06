@@ -1,0 +1,31 @@
+version: 2
+
+project_name: kahook
+
+builds:
+  - main: ./cmd/server
+    binary: kahook
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - linux
+    goarch:
+      - amd64
+    ldflags:
+      - -s -w
+      - -X github.com/kahook/internal/version.Version={{.Version}}
+      - -X github.com/kahook/internal/version.GitCommit={{.ShortCommit}}
+      - -X github.com/kahook/internal/version.BuildTime={{.Date}}
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+changelog:
+  sort: asc
+
+release:
+  github:
+    owner: braislchao
+    name: kahook

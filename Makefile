@@ -101,5 +101,9 @@ delete-k8s:
 logs-k8s:
 	kubectl logs -f -l app=kahook -n kahook
 
+## release-dry: Test release locally (requires goreleaser)
+release-dry:
+	goreleaser release --snapshot --clean
+
 ## all: Run fmt, vet, test, and build
 all: fmt vet test build
