@@ -367,6 +367,29 @@ func TestLoad_AuthBasicUsersPasswordWithColon(t *testing.T) {
 	}
 }
 
+func TestLoad_AllowedTopicsFromEnv(t *testing.T) {
+	dir := t.TempDir()
+	orig, _ := os.Getwd()
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(orig) }()
+
+	t.Setenv("ALLOWED_TOPICS", "orders,events,payments")
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load() error = %v", err)
+	}
+
+	if len(cfg.Server.AllowedTopics) != 3 {
+		t.Fatalf("Expected 3 allowed topics, got %d", len(cfg.Server.AllowedTopics))
+	}
+	if cfg.Server.AllowedTopics[0] != "orders" || cfg.Server.AllowedTopics[2] != "payments" {
+		t.Errorf("Unexpected allowed topics: %v", cfg.Server.AllowedTopics)
+	}
+}
+
 func TestKafkaConfigMap(t *testing.T) {
 	tests := []struct {
 		name   string

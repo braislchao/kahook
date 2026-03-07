@@ -79,14 +79,19 @@ func main() {
 		logger.Warn("no authentication configured")
 	}
 
+	if len(cfg.Server.AllowedTopics) > 0 {
+		logger.Info("topic allowlist enabled", zap.Strings("allowed_topics", cfg.Server.AllowedTopics))
+	}
+
 	srv := server.NewServer(server.ServerConfig{
-		Port:         cfg.Server.Port,
-		ReadTimeout:  time.Duration(cfg.Server.ReadTimeout) * time.Second,
-		WriteTimeout: time.Duration(cfg.Server.WriteTimeout) * time.Second,
-		IdleTimeout:  time.Duration(cfg.Server.IdleTimeout) * time.Second,
-		Producer:     producer,
-		Auth:         authenticator,
-		Logger:       logger,
+		Port:          cfg.Server.Port,
+		ReadTimeout:   time.Duration(cfg.Server.ReadTimeout) * time.Second,
+		WriteTimeout:  time.Duration(cfg.Server.WriteTimeout) * time.Second,
+		IdleTimeout:   time.Duration(cfg.Server.IdleTimeout) * time.Second,
+		Producer:      producer,
+		Auth:          authenticator,
+		Logger:        logger,
+		AllowedTopics: cfg.Server.AllowedTopics,
 	})
 
 	stop := make(chan os.Signal, 1)

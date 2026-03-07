@@ -16,10 +16,11 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port         int `yaml:"port"`
-	ReadTimeout  int `yaml:"read_timeout"`
-	WriteTimeout int `yaml:"write_timeout"`
-	IdleTimeout  int `yaml:"idle_timeout"`
+	Port          int      `yaml:"port"`
+	ReadTimeout   int      `yaml:"read_timeout"`
+	WriteTimeout  int      `yaml:"write_timeout"`
+	IdleTimeout   int      `yaml:"idle_timeout"`
+	AllowedTopics []string `yaml:"allowed_topics"`
 }
 
 type AuthConfig struct {
@@ -150,6 +151,10 @@ func applyEnv(cfg *Config) {
 		if len(users) > 0 {
 			cfg.Auth.Users = users
 		}
+	}
+
+	if v := os.Getenv("ALLOWED_TOPICS"); v != "" {
+		cfg.Server.AllowedTopics = strings.Split(v, ",")
 	}
 
 	if v := os.Getenv("KAFKA_BROKERS"); v != "" {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -20,6 +21,10 @@ const maxBodyBytes = 1 << 20 // 1 MiB
 
 // produceTimeout is the per-request deadline for Kafka produce calls.
 const produceTimeout = 10 * time.Second
+
+// validTopicName matches Kafka's allowed topic characters: letters, digits, dots, underscores, hyphens.
+// Max length is 249 characters.
+var validTopicName = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,249}$`)
 
 // internalHeaders is the set of hop-by-hop / framework headers that are NOT
 // forwarded to Kafka as message headers. Using a package-level map avoids
@@ -46,22 +51,24 @@ type KafkaProducer interface {
 
 // Server is the HTTP server that bridges incoming webhooks to Kafka.
 type Server struct {
-	httpServer *http.Server
-	producer   KafkaProducer
-	auth       *auth.MultiAuth
-	logger     *zap.Logger
-	metrics    *Metrics
+	httpServer    *http.Server
+	producer      KafkaProducer
+	auth          *auth.MultiAuth
+	logger        *zap.Logger
+	metrics       *Metrics
+	allowedTopics map[string]bool
 }
 
 // ServerConfig holds all dependencies and configuration needed to build a Server.
 type ServerConfig struct {
-	Port         int
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	IdleTimeout  time.Duration
-	Producer     KafkaProducer
-	Auth         *auth.MultiAuth
-	Logger       *zap.Logger
+	Port          int
+	ReadTimeout   time.Duration
+	WriteTimeout  time.Duration
+	IdleTimeout   time.Duration
+	Producer      KafkaProducer
+	Auth          *auth.MultiAuth
+	Logger        *zap.Logger
+	AllowedTopics []string
 }
 
 // ErrorResponse is the JSON body returned on errors.
@@ -72,11 +79,17 @@ type ErrorResponse struct {
 
 // NewServer constructs and configures the HTTP server.
 func NewServer(cfg ServerConfig) *Server {
+	allowed := make(map[string]bool, len(cfg.AllowedTopics))
+	for _, t := range cfg.AllowedTopics {
+		allowed[t] = true
+	}
+
 	s := &Server{
-		producer: cfg.Producer,
-		auth:     cfg.Auth,
-		logger:   cfg.Logger,
-		metrics:  NewMetrics(),
+		producer:      cfg.Producer,
+		auth:          cfg.Auth,
+		logger:        cfg.Logger,
+		metrics:       NewMetrics(),
+		allowedTopics: allowed,
 	}
 
 	mux := http.NewServeMux()
@@ -199,13 +212,20 @@ func (s *Server) webhookHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	topic := strings.Trim(r.URL.Path, "/")
-	if topic == "" || strings.Contains(topic, "/") {
-		s.writeError(w, http.StatusBadRequest, "invalid_topic", "topic name must be a single path segment")
+	if topic == "" || !validTopicName.MatchString(topic) {
+		s.writeError(w, http.StatusBadRequest, "invalid_topic",
+			"topic must match [a-zA-Z0-9._-] and be 1-249 characters")
 		return
 	}
 
 	if topic == "health" || topic == "ready" || topic == "metrics" {
 		s.writeError(w, http.StatusBadRequest, "reserved_topic", "cannot use reserved topic name")
+		return
+	}
+
+	if len(s.allowedTopics) > 0 && !s.allowedTopics[topic] {
+		s.writeError(w, http.StatusForbidden, "topic_not_allowed",
+			fmt.Sprintf("topic %q is not in the allowed topics list", topic))
 		return
 	}
 

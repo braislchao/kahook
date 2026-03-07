@@ -312,10 +312,15 @@ func TestWebhookHandler_TopicValidation(t *testing.T) {
 	}{
 		{"valid topic", "/my-topic", http.StatusAccepted},
 		{"valid topic with dots", "/my.nested.topic", http.StatusAccepted},
+		{"valid topic with underscore", "/my_topic", http.StatusAccepted},
 		{"empty path", "/", http.StatusBadRequest},
 		{"reserved health", "/health", http.StatusBadRequest},
 		{"reserved ready", "/ready", http.StatusBadRequest},
 		{"reserved metrics", "/metrics", http.StatusBadRequest},
+		{"nested path", "/a/b", http.StatusBadRequest},
+		{"special chars", "/topic@name!", http.StatusBadRequest},
+		{"unicode", "/topic\u00e9", http.StatusBadRequest},
+		{"curly braces", "/topic{name}", http.StatusBadRequest},
 	}
 
 	for _, tt := range tests {
@@ -330,6 +335,46 @@ func TestWebhookHandler_TopicValidation(t *testing.T) {
 
 			if w.Code != tt.wantStatus {
 				t.Errorf("path=%s status = %d, want %d", tt.path, w.Code, tt.wantStatus)
+			}
+		})
+	}
+}
+
+// -------------------------------------------------------------------
+// webhookHandler — allowed topics
+// -------------------------------------------------------------------
+
+func TestWebhookHandler_AllowedTopics(t *testing.T) {
+	tests := []struct {
+		name          string
+		allowedTopics []string
+		topic         string
+		wantStatus    int
+	}{
+		{"no allowlist permits any topic", nil, "/any-topic", http.StatusAccepted},
+		{"empty allowlist permits any topic", []string{}, "/any-topic", http.StatusAccepted},
+		{"allowed topic accepted", []string{"orders", "events"}, "/orders", http.StatusAccepted},
+		{"disallowed topic rejected", []string{"orders", "events"}, "/payments", http.StatusForbidden},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := NewServer(ServerConfig{
+				Port:          8080,
+				Producer:      &mockProducer{isHealthy: true},
+				Auth:          auth.NewMultiAuth(nil, nil),
+				Logger:        zap.NewNop(),
+				AllowedTopics: tt.allowedTopics,
+			})
+
+			body := bytes.NewBufferString(`{"test": "data"}`)
+			req := httptest.NewRequest(http.MethodPost, tt.topic, body)
+			w := httptest.NewRecorder()
+
+			srv.webhookHandler(w, req)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("topic=%s status = %d, want %d", tt.topic, w.Code, tt.wantStatus)
 			}
 		})
 	}
